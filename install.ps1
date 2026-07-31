@@ -14,11 +14,6 @@ $SkillsDir = 'skills'
 
 # 1) Locate the Hermes skills folder.
 function Find-HermesSkillsDir {
-    # Order of preference:
-    #   - $HERMES_SKILLS_DIR (explicit override)
-    #   - <local data>/hermes/skills
-    #   - <roaming data>/hermes/skills
-    #   - ~/.hermes/skills
     if ($env:HERMES_SKILLS_DIR -and (Test-Path $env:HERMES_SKILLS_DIR)) {
         return $env:HERMES_SKILLS_DIR
     }
@@ -30,14 +25,13 @@ function Find-HermesSkillsDir {
     foreach ($c in $candidates) {
         if (Test-Path $c) { return $c }
     }
-    # Default to the local-appdata location even if not present yet.
     return $candidates[0]
 }
 
 $SKILLS_TARGET = Find-HermesSkillsDir
 New-Item -ItemType Directory -Force -Path $SKILLS_TARGET | Out-Null
 
-# 2) Download a zip of the repo and extract only the skills/ folder.
+# 2) Download a zip of the repo.
 $TempDir = Join-Path $env:TEMP ('explain-diff-skill-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
 $ZipPath = Join-Path $TempDir 'repo.zip'
@@ -56,23 +50,34 @@ try {
 }
 
 # 3) Extract.
+# Prefer tar.exe (built into Windows 10/11). PowerShell 5.1's Expand-Archive
+# silently drops empty directory entries from the zip, which breaks the
+# `skills/` folder layout, so we avoid it.
 $Extracted = Join-Path $TempDir 'extracted'
-Expand-Archive -Path $ZipPath -DestinationPath $Extracted -Force
-# GitHub archive root is <repo>-<branch>/
-$RepoRoot = Get-ChildItem -Directory $Extracted | Select-Object -First 1
-$SourceSkills = Join-Path $RepoRoot $SkillsDir
+New-Item -ItemType Directory -Force -Path $Extracted | Out-Null
+if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
+    & tar.exe -xf $ZipPath -C $Extracted
+} else {
+    Expand-Archive -Path $ZipPath -DestinationPath $Extracted -Force
+}
 
-if (-not (Test-Path $SourceSkills)) {
-    Write-Error "Could not find $SkillsDir/ in the downloaded archive."
+# 4) Find every SKILL.md under the extracted repo (recursive, robust to the
+#    empty-directory bug). Each SKILL.md lives in <skill>/SKILL.md, so its
+#    parent directory is the skill folder we want to copy.
+$RepoRoot = Get-ChildItem -Directory $Extracted | Select-Object -First 1
+$SkillFiles = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter SKILL.md -File)
+
+if ($SkillFiles.Count -eq 0) {
+    Write-Error "Could not find any SKILL.md in the downloaded archive."
     exit 1
 }
 
-# 4) Copy each skill folder into the Hermes skills dir.
 $Copied = @()
-Get-ChildItem -Directory $SourceSkills | ForEach-Object {
-    $dst = Join-Path $SKILLS_TARGET $_.Name
-    Copy-Item -Path $_.FullName -Destination $dst -Recurse -Force
-    $Copied += $_.Name
+foreach ($sf in $SkillFiles) {
+    $skillFolder = $sf.Directory.FullName
+    $dst = Join-Path $SKILLS_TARGET $sf.Directory.Name
+    Copy-Item -Path $skillFolder -Destination $dst -Recurse -Force
+    $Copied += $sf.Directory.Name
 }
 
 # 5) Cleanup.
@@ -81,6 +86,6 @@ Remove-Item -Recurse -Force $TempDir
 Write-Host ''
 Write-Host 'explain-diff-skill installed.' -ForegroundColor Green
 Write-Host "Skills folder: $SKILLS_TARGET" -ForegroundColor Gray
-$Copied | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
+$Copied | Sort-Object -Unique | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
 Write-Host ''
 Write-Host 'Restart Hermes Agent (or run /skills) to load the new skills.' -ForegroundColor Yellow
