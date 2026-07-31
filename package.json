@@ -1,0 +1,30 @@
+{
+  "name": "explain-diff-skill",
+  "version": "1.0.0",
+  "description": "Hermes Agent skills that generate rich, interactive HTML/Notion explanations of a code diff, branch, or PR.",
+  "bin": {
+    "explain-diff-skill": "./install-node.js"
+  },
+  "files": [
+    "skills",
+    "install-node.js",
+    "install.ps1",
+    "install.sh"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CheolyongKim/explain-diff-skill.git"
+  },
+  "keywords": [
+    "hermes",
+    "hermes-agent",
+    "skill",
+    "diff",
+    "explain",
+    "code-review",
+    "pr",
+    "branch"
+  ],
+  "author": "CheolyongKim",
+  "license": "MIT"
+}
