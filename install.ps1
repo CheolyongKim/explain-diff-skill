@@ -2,9 +2,10 @@
 # Usage (PowerShell):
 #   irm https://raw.githubusercontent.com/CheolyongKim/explain-diff-skill/main/install.ps1 | iex
 #
-# This downloads the `skills/` directory from the GitHub repo and copies it
-# into the Hermes Agent skills folder so the skills show up in Hermes.
-# It does NOT touch anything outside the Hermes skills folder.
+# Downloads the `skills/` files directly from GitHub (via the git tree API +
+# raw file URLs) and writes them into the Hermes Agent skills folder.
+# No archive extraction is involved, so it works even where Expand-Archive /
+# tar fail. It only writes inside the Hermes skills folder.
 
 $ErrorActionPreference = 'Stop'
 
@@ -31,57 +32,42 @@ function Find-HermesSkillsDir {
 $SKILLS_TARGET = Find-HermesSkillsDir
 New-Item -ItemType Directory -Force -Path $SKILLS_TARGET | Out-Null
 
-# 2) Download a zip of the repo.
-$TempDir = Join-Path $env:TEMP ('explain-diff-skill-' + [guid]::NewGuid().ToString('N'))
-New-Item -ItemType Directory -Force -Path $TempDir | Out-Null
-$ZipPath = Join-Path $TempDir 'repo.zip'
-$Url = "https://github.com/$Repo/archive/refs/heads/$Branch.zip"
-
-Write-Host "Downloading $Repo@$Branch ..." -ForegroundColor Cyan
+# 2) Ask GitHub for the file tree (recursive) and keep only skills/ blobs.
+$ApiUrl = "https://api.github.com/repos/$Repo/git/trees/$Branch`?recursive=1"
+Write-Host "Resolving file tree for $Repo@$Branch ..." -ForegroundColor Cyan
 try {
-    if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
-        & curl.exe -fsSL $Url -o $ZipPath
-    } else {
-        Invoke-WebRequest -Uri $Url -OutFile $ZipPath -UseBasicParsing
-    }
+    $tree = Invoke-RestMethod -Uri $ApiUrl -Headers @{ 'User-Agent' = 'explain-diff-installer' }
 } catch {
-    Write-Error "Failed to download $Url : $_"
+    Write-Error "Failed to fetch repo tree from GitHub API: $_"
     exit 1
 }
 
-# 3) Extract.
-# Prefer tar.exe (built into Windows 10/11). PowerShell 5.1's Expand-Archive
-# silently drops empty directory entries from the zip, which breaks the
-# `skills/` folder layout, so we avoid it.
-$Extracted = Join-Path $TempDir 'extracted'
-New-Item -ItemType Directory -Force -Path $Extracted | Out-Null
-if (Get-Command tar.exe -ErrorAction SilentlyContinue) {
-    & tar.exe -xf $ZipPath -C $Extracted
-} else {
-    Expand-Archive -Path $ZipPath -DestinationPath $Extracted -Force
-}
-
-# 4) Find every SKILL.md under the extracted repo (recursive, robust to the
-#    empty-directory bug). Each SKILL.md lives in <skill>/SKILL.md, so its
-#    parent directory is the skill folder we want to copy.
-$RepoRoot = Get-ChildItem -Directory $Extracted | Select-Object -First 1
-$SkillFiles = @(Get-ChildItem -Path $RepoRoot -Recurse -Filter SKILL.md -File)
-
-if ($SkillFiles.Count -eq 0) {
-    Write-Error "Could not find any SKILL.md in the downloaded archive."
+$blobs = $tree.tree | Where-Object { $_.path -like "$SkillsDir/*" -and $_.type -eq 'blob' }
+if ($blobs.Count -eq 0) {
+    Write-Error "No files found under $SkillsDir/ in the repo tree."
     exit 1
 }
 
+# 3) Download each blob to the matching path under the Hermes skills folder.
 $Copied = @()
-foreach ($sf in $SkillFiles) {
-    $skillFolder = $sf.Directory.FullName
-    $dst = Join-Path $SKILLS_TARGET $sf.Directory.Name
-    Copy-Item -Path $skillFolder -Destination $dst -Recurse -Force
-    $Copied += $sf.Directory.Name
+foreach ($b in $blobs) {
+    $url  = "https://raw.githubusercontent.com/$Repo/$Branch/$($b.path)"
+    $dest = Join-Path $SKILLS_TARGET $b.path
+    New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+    try {
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            & curl.exe -fsSL $url -o $dest
+        } else {
+            Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing
+        }
+    } catch {
+        Write-Error "Failed to download $url : $_"
+        exit 1
+    }
+    # Track the top-level skill folder name (skills/<skill>/...).
+    $skillName = ($b.path -split '/')[1]
+    if ($Copied -notcontains $skillName) { $Copied += $skillName }
 }
-
-# 5) Cleanup.
-Remove-Item -Recurse -Force $TempDir
 
 Write-Host ''
 Write-Host 'explain-diff-skill installed.' -ForegroundColor Green
