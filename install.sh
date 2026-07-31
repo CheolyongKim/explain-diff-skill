@@ -40,7 +40,7 @@ URL="https://github.com/$REPO/archive/refs/heads/$BRANCH.zip"
 
 echo "Downloading $REPO@$BRANCH ..."
 if command -v curl >/dev/null 2>&1; then
-  curl -fsSL "$URL" -o "$TMP/repo.zip"
+  curl -fsSL "$URL" > "$TMP/repo.zip"
 elif command -v wget >/dev/null 2>&1; then
   wget -qO "$TMP/repo.zip" "$URL"
 else
