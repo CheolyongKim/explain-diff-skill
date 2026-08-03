@@ -1,0 +1,23 @@
+{
+  "name": "explain-diff-html",
+  "version": "1.0.0",
+  "description": "Create a rich, self-contained HTML explanation of a code change, diff, branch, or PR.",
+  "author": { "name": "CheolyongKim", "url": "https://github.com/CheolyongKim" },
+  "homepage": "https://github.com/CheolyongKim/explain-diff-skill",
+  "repository": "https://github.com/CheolyongKim/explain-diff-skill",
+  "license": "MIT",
+  "keywords": ["diff", "code-review", "html", "pr", "explain"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Explain Diff: HTML",
+    "shortDescription": "Create an interactive HTML explanation of a code change",
+    "longDescription": "Explore a code change and create a self-contained HTML explanation with background, intuition, code walkthrough, diagrams, and an interactive quiz.",
+    "developerName": "CheolyongKim",
+    "category": "Engineering",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/CheolyongKim/explain-diff-skill",
+    "defaultPrompt": ["Explain this diff as a rich interactive HTML page."],
+    "brandColor": "#2563EB",
+    "screenshots": []
+  }
+}
