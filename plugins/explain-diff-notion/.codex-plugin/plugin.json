@@ -1,0 +1,23 @@
+{
+  "name": "explain-diff-notion",
+  "version": "1.0.0",
+  "description": "Create a rich Notion-page explanation of a code change. Requires a configured Notion MCP server (`codex mcp add`).",
+  "author": { "name": "CheolyongKim", "url": "https://github.com/CheolyongKim" },
+  "homepage": "https://github.com/CheolyongKim/explain-diff-skill",
+  "repository": "https://github.com/CheolyongKim/explain-diff-skill",
+  "license": "MIT",
+  "keywords": ["diff", "code-review", "notion", "mcp", "pr", "explain"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Explain Diff: Notion",
+    "shortDescription": "Create a Notion explanation of a code change",
+    "longDescription": "Explore a code change and create a Notion page with background, intuition, code walkthrough, diagrams, and a toggle-based quiz. Requires a Notion MCP server configured with codex mcp add.",
+    "developerName": "CheolyongKim",
+    "category": "Engineering",
+    "capabilities": ["Read", "Write"],
+    "websiteURL": "https://github.com/CheolyongKim/explain-diff-skill",
+    "defaultPrompt": ["Explain this diff as a rich Notion page."],
+    "brandColor": "#111827",
+    "screenshots": []
+  }
+}
